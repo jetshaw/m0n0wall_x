@@ -1,0 +1,18 @@
+# this file is used to be fdisk the cf card ,before the fdisk acting we shoud 
+# get the message of the cf card such as cylinders,heads,sectors parameters
+# the 1GB cf card parameters i haved,cylinders=2045,heads=16,sector=63
+#
+#parameters to be used for BIOS calculations are:
+#cylinders=2045 heads=16 sectors/track=63 (16065 blks/cyl)
+
+
+#Media sector size is 512
+#Warning: BIOS sector numbering starts with sector 1
+#Information from DOS bootblock is:
+
+g   s63 c2045    h16
+p   1   165 63  401562
+p   2   165 401625  401625
+p   3   165 803250  401625
+a   1
+

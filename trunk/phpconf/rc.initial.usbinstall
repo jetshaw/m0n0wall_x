@@ -1,0 +1,202 @@
+#!/usr/local/bin/php -f
+<?php
+/*
+*/
+
+	/* parse the configuration and include all functions used below */
+	require_once("config.inc");
+	require_once("functions.inc");
+
+	$fp = fopen('php://stdin', 'r');
+
+	$disks = storage_disk_get_devices();
+
+	echo <<<EOD
+
+Valid disks are:
+
+
+EOD;
+
+	foreach ($disks as $disk) {
+		$info = storage_read_diskinfo($disk);
+		$name = storage_disk_get_name($disk);
+		echo $disk . "\t$name\t" . format_bytes($info['sizeinbytes']) . "\n";
+	}
+
+	do {
+		echo "\nEnter the device name you wish to install onto: ";
+		$target_disk = chop(fgets($fp));
+		if ($target_disk === "") {
+			exit(0);
+		}
+	} while (!in_array($target_disk, $disks));
+	
+	
+	echo <<<EOD
+
+*******************************************************************************
+* WARNING!                                                                    *
+* m0n0wall is about to be installed onto the $target_disk device.                      *
+* - everything on this device will be erased!                                 *
+* - this cannot be undone!                                                    *
+*******************************************************************************
+
+The firewall will reboot after installation.
+
+Do you want to proceed? (y/n) 
+EOD;
+	
+	if (strcasecmp(chop(fgets($fp)), "y") == 0) {
+
+		echo "Installing... ";
+        if ( !file_exists("/cf/cf_slices_config")){
+            echo "the cf_slices_config not found";
+            exit(1);
+        }
+        echo "dd zero to /dev/".$target_disk."......";
+        mwexec("/bin/dd if=/dev/zero of=/dev/$target_disk bs=64k count=10");
+        
+        //mwexec("/bin/dd if=/dev/da0 of=/dev/$target_disk bs=512 count=1"); 
+        mwexec("/sbin/umount /cf");
+        mwexec("/sbin/mount /dev/da0s2 /cf");
+        if( !file_exists("/cf/cf_slices_config") ){
+            echo "/cf/cf_slices_config can not be found\n";
+            exit(1);
+        }
+        system("/bin/fdisk /dev/ad1 >/tmp/info_cf");
+        if ( !file_get_contents("/tmp/info_cf") ){
+            echo "/tmp/info_cf is null \n";
+            exit(1);
+        }else{
+            echo "system call success!!!\n";
+        }
+        echo "replace cf_slices_config......\n";
+        if( replace_file("/tmp/info_cf","/cf/cf_slices_config") )
+            echo "replace the cf_slices_config success!\n";
+        else {
+            echo "replace failed\n";
+            exit(1);
+        }
+        echo "fdisk ".$target_disk."......";
+        mwexec("/bin/fdisk -i -v -b /boot/mbr -f /cf/cf_slices_config /dev/$target_disk");
+	    if (!file_exists("/dev/{$target_disk}s1")||!file_exists("/dev/{$target_disk}s2")){
+            echo "failed! fdisk cmd failed!";
+            exit(1);
+        }
+        if (!file_exists("/cf/firmware.img")) {
+			echo "failed! (firmware not found)\n";
+		} else {
+			mwexec("/usr/bin/gunzip -S \"\" -c /cf/firmware.img | dd of=/dev/{$target_disk}s1 ibs=64k obs=64k");
+			echo "done\n";
+	        sleep(5);		
+			/* copy existing configuration */
+			echo "Copying configuration... ";
+            echo "newfs /dev/".$target_disk."s2 ...";
+            mwexec("/sbin/newfs /dev/{$target_disk}s2");
+            sleep(3);
+			mwexec("/sbin/mount -w -o noatime /dev/{$target_disk}s2 /mnt");
+            mwexec("mkdir /mnt/conf");
+            if ( !file_exists("/mnt/conf") ){
+                echo " the /mnt/conf/  can not found, exit !";
+                exit(1);
+            }
+			copy("{$g['conf_path']}/config.xml", "/mnt/conf/config.xml");
+            copy("/cf/cf_slices_config","/mnt/cf_slices_config");
+            copy("/cf/firmware.img","/mnt/firmware.img");
+
+			mwexec("/sbin/umount /mnt");
+			echo "done\n";		
+			system_reboot_sync();
+		}
+	}
+	
+	/**
+	 * 
+	 * @param unknown $get_file_path     //获取参数值文件路径
+	 * @param unknown $replace_file_path //替换参数值文件路径
+	 */
+	
+function replace_file($get_file_path, $replace_file_path) {
+		error_reporting(0);
+		$get_handle = fopen($get_file_path, 'r');
+		$need = '';
+		$flag = false;
+		if ( $get_handle ) {
+			while ( !feof ($get_handle) ) {
+				$content = fgets($get_handle);
+				if ( is_int(strpos($content, 'cylinders')) && is_int(strpos($content, 'heads')) && is_int(strpos($content, 'sectors/track'))) {
+					$need = $content;
+					break;
+				}
+			}
+		}
+		fclose($get_handle);
+		$replacement = array();
+		if ( !empty($need) ) {
+			$array_need = explode(' ', $need);
+			foreach ($array_need as $needs) {
+				$str = strrev($needs);
+				$int = strrev((int)$str);
+				if ( $int > 0 ) {
+					$replacement[$needs[0]] = $int;
+				}
+			}
+		}
+		$arrs = array();
+		if (!empty($replacement)) {
+			$put_handle = fopen($replace_file_path, 'r');
+			$replace_string = '';
+			if ( $put_handle ) {
+				while ( !feof ($put_handle) ) {
+					$content = fgets($put_handle);
+					if ( $content[0] == 'g' ) {
+						$replace_string = $content;
+						$tmp_replace = explode(' ', $replace_string);
+						$arr_replace = array();
+						foreach ($tmp_replace as $k=>$v) {
+							if (!empty($v)) {
+								$arr_replace[$v[0]] = $v;
+							}
+						}
+						$multy = 1;
+						foreach($arr_replace as $k=>$v){
+							if ( isset($replacement[$k]) ) {
+								$multy *= $replacement[$k];
+							}
+							$arr_replace[$k] = $k . $replacement[$k];
+						}
+						$content = implode(" ", $arr_replace) . PHP_EOL;
+					}
+					if ( $content[0] == 'p' ) {
+						$tmp_replace = explode(' ', $content);
+						$arr_replace = array();
+						foreach ($tmp_replace as $k=>$v) {
+							if (!empty($v)) {
+								$arr_replace[] = $v;
+							}
+						}
+						if ( $arr_replace[1] == 3 ) {
+							$count = count($arr_replace);
+							$arr_replace[--$count] = $multy-2*401652;
+							$content = implode(" ", $arr_replace) . PHP_EOL;
+						}
+					}
+					$arrs[] = $content;
+				}
+				fclose($put_handle);
+			}
+		}
+		if ( !empty($arrs) ) {
+			@unlink($replace_file_path);
+			$handle = fopen($replace_file_path, 'w');
+			foreach($arrs as $key=>$v) {
+				fwrite($handle, $v);
+				//@file_put_contents($replace_file_path, $v, FILE_APPEND);
+			}
+			$flag = true;
+		}
+		return $flag;
+	}
+	
+?>

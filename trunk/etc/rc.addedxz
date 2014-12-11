@@ -1,0 +1,37 @@
+#!/bin/sh
+
+# this file is added by xiaozai to add the system servers such as sshd ...,and add the 
+# operational servers such as captiveportal configs or datas action!
+
+
+#**********************************************************
+# the system level servers or cmd shoud be added in here
+#***********************************************************
+/usr/bin/sshd -f /etc/ssh/sshd_config
+
+
+#**************************************************************
+# the operational level servers or cmd shoud be added in here
+#**************************************************************
+if [ -d /var/db/cpelements ];then
+    echo "/var/db/cpelements is exist\n"
+else
+    mkdir -p /var/db/cpelements
+fi
+
+if [ -d /var/etc ];then
+    echo "/var/etc is exist\n"
+else
+    mkdir -p /var/etc
+fi
+
+if [ -d /usr/data/cpelements ];then
+    cp -a /usr/data/cpelements/* /var/db/cpelements/
+fi
+
+if [ -d /usr/data/cphtmls ];then
+    cp -a /usr/data/cphtmls/* /var/etc/
+fi
+
+#*********************************************
+exit

@@ -1,0 +1,216 @@
+#!/usr/local/bin/php -f
+<?php
+/*
+	$Id: rc.bootup 550 2013-11-24 16:54:44Z lgrahl $
+	part of m0n0wall (http://m0n0.ch/wall)
+	
+	Copyright (C) 2003-2006 Manuel Kasper <mk@neon1.net>.
+	All rights reserved.
+	
+	Redistribution and use in source and binary forms, with or without
+	modification, are permitted provided that the following conditions are met:
+	
+	1. Redistributions of source code must retain the above copyright notice,
+	   this list of conditions and the following disclaimer.
+	
+	2. Redistributions in binary form must reproduce the above copyright
+	   notice, this list of conditions and the following disclaimer in the
+	   documentation and/or other materials provided with the distribution.
+	
+	THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
+	INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+	AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+	AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+	OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+	SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+	INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+	CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+	ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+	POSSIBILITY OF SUCH DAMAGE.
+*/
+
+	require_once("globals.inc");
+
+	/* let the other functions know we're booting */
+	$g['booting'] = TRUE;
+	touch("{$g['varrun_path']}/booting");
+
+	/* parse the configuration and include all functions used below */
+	require_once("config.inc");
+	require_once("functions.inc");
+	
+	/* check whether config reset is desired (via hardware button on WRAP/ALIX) */
+	system_check_reset_button();
+		
+	/* convert configuration, if necessary */
+	convert_config();
+	
+	/* enable hardware crypto built into CPU, if available */
+	enable_cpuhwcrypto();
+	
+	/* load optional kernel modules */
+	load_kernel_modules();
+	
+	/* automatically reassign interfaces if necessary */
+	interfaces_autoreassign();
+	
+	/* execute the rc.early scripts of extensions */
+	system_do_extensions(1);
+	
+	/* run any early shell commands specified in config.xml */
+	system_do_shell_commands(1);
+	
+	/* save dmesg output to file */
+	system_dmesg_save();
+	
+	/* set up our timezone */
+	system_timezone_configure();
+	
+	/* set up our hostname */
+	system_hostname_configure();
+	
+	/* make hosts file */
+	system_hosts_generate();
+	
+	/* generate resolv.conf */
+	system_resolvconf_generate();
+	
+	/* establish ipfilter ruleset */
+	filter_configure();
+	
+	/* configure loopback interface */
+	interfaces_loopback_configure();
+	
+	/* set up VLAN virtual interfaces */
+	interfaces_vlan_configure();
+	
+	/* set up WLAN subinterfaces */
+	interfaces_wlan_configure();
+	
+	/* set up LAN interface */
+	interfaces_lan_configure();
+	
+	/* set up WAN interface */
+	interfaces_wan_configure();
+	
+	/* set up Optional interfaces */
+	interfaces_optional_configure();
+	
+	/* resync ipfilter */
+	filter_resync();
+	
+	/* start ipmon */
+	filter_ipmon_start();
+	
+	/* set up static routes */
+	system_routing_configure();
+	
+	/* enable routing */
+	system_routing_enable();
+	
+	/* start syslogd */
+	system_syslogd_start();
+	
+	/* start web server */
+	system_webgui_start();
+	
+	/* configure console menu */
+	system_console_configure();
+	
+	/* start dnsmasq service */
+	services_dnsmasq_configure();
+
+	/* start the NTP client */
+	system_ntp_configure();
+	
+	/* start dyndns service */
+	services_dyndns_configure();
+	
+	/* static IP address? -> attempt DNS update */
+	if (is_ipaddr($config['interfaces']['wan']['ipaddr']))
+		services_dnsupdate_process();
+	
+	/* start DHCP service */
+	services_dhcpd_configure();
+	
+	echo "before rtadvd configure\n";
+	/* start rtadvd */
+	interfaces_rtadvd_configure();
+	echo "end rtadvd configure\n";
+	
+	echo "before dhcp6s configure\n";
+	/* start DHCPv6 service */
+	services_dhcp6s_configure();
+	echo "end dhcp6s configure\n";
+	
+	/* start DHCP relay */
+	echo "before dhcrelay configure\n";
+	services_dhcrelay_configure();
+	echo "end dhcrelay configure\n";
+	
+	/* start SNMP service */
+	echo "before snmpd configure\n";
+	services_snmpd_configure();
+	echo "end snmpd configure\n";
+	
+	/* start proxy ARP service */
+	echo "before proxyarp configure\n";
+	services_proxyarp_configure();
+	echo "before proxyarp configure\n";
+	
+	/* start pptpd */
+	echo "before vpn pptpd configure\n";
+	vpn_pptpd_configure();
+	echo "end vpn pptpd configure\n";
+	
+	/* start traffic shaper */
+	echo "before shaper configure\n";
+	shaper_configure();
+	echo "end shaper configure\n";
+	
+	/* start IPsec tunnels */
+	echo "before ipsec configure\n";
+	vpn_ipsec_configure();
+	echo "end ipsec configure\n";
+	
+	/* start the captive portal */
+	echo "before captiveportal configure\n";
+	captiveportal_configure();
+	echo "end captiveportal configure\n";
+	
+	/* start Voucher support */
+	echo "before voucher configure\n";
+	voucher_configure();
+	echo "end voucher configure\n";
+	
+	/* start Scheduler */
+	echo "before croen configure\n";
+	services_croen_configure();
+	echo "end croen configure\n";
+	
+	/* set up termcap (for the firewall states page) */
+	echo "before set termcap configure\n";
+	system_set_termcap();
+	echo "end set termcap configure\n";
+	
+	/* execute the rc scripts of extensions */
+	echo "before do extensions configure\n";
+	system_do_extensions();
+	echo "end do extensions configure\n";
+
+	/* runs background */
+	mwexec_bg("{$g['captiveportal_path']}/run-session-check.php");
+
+	/* run any shell commands specified in config.xml */
+	echo "before do shellcommands configure\n";
+	system_do_shell_commands();
+	echo "end do shellcommands configure\n";
+
+	/* enable HD standby */
+	echo "before set harddisk configure\n";
+	system_set_harddisk_standby();
+	echo "end set harddisk configure\n";
+
+	/* done */
+	unlink("{$g['varrun_path']}/booting");
+?>

@@ -1,0 +1,22 @@
+@charset "utf-8";
+/* reset*/
+html, body, h1, h2, h3, h4, h5, h6, form, fieldset, legend, div, p, span, dl, dt, dd, ul, ol, li, blockquote, pre, q, cite, input,button {margin:0; padding:0;outline:0 none; list-style:none;}
+a:link, a:visited, ins, del {text-decoration:none;}
+a,input{blr:expression(this.onFocus=this.blur());outline: none;}
+a:focus,input:focus{-moz-outline-style: none; }
+a:hover, a:active {text-decoration:underline;outline:0 none;}
+*:focus{outline-style: none;}
+button::-moz-focus-inner{border-color:transparent!important;}  
+a img, fieldset {border:0 none;}
+ul, ol {list-style-type:none;}
+h1, h2, h3, h4, h5, h6, strong, em, cite, address, sup, sub, th {font-weight:normal; font-style:normal; vertical-align:auto; font-size:1em;}
+legend {display:none;}
+table {border-collapse:collapse;}
+textarea {resize:none;}
+input {/*background-color:#FFFFFF;*/border:none;}
+select{font-size:12px;}
+input, textarea{font-family:Helvetica,sans-serif;}
+input, textarea, button {font-size:100%;}
+button {font-family:simsun;}
+.clearfix{*zoom:1;}
+.clearfix:after{clear:both; content:''; display:block;visibility:hidden;height: 0;}

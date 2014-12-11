@@ -1,0 +1,30 @@
+#parameters to be used for BIOS calculations are:
+#cylinders=487 heads=255 sectors/track=63 (16065 blks/cyl)
+
+#Media sector size is 512
+#Warning: BIOS sector numbering starts with sector 1
+#Information from DOS bootblock is:
+#The data for partition 1 is:
+#sysid 165 (0xa5),(FreeBSD/NetBSD/386BSD)
+#    start 63, size 401562 (196 Meg), flag 80 (active)
+#	beg: cyl 0/ head 1/ sector 1;
+#	end: cyl 24/ head 254/ sector 63
+#The data for partition 2 is:
+#sysid 165 (0xa5),(FreeBSD/NetBSD/386BSD)
+#    start 401625, size 401625 (196 Meg), flag 80 (active)
+#	beg: cyl 25/ head 0/ sector 1;
+#	end: cyl 49/ head 254/ sector 63
+#The data for partition 3 is:
+#sysid 165 (0xa5),(FreeBSD/NetBSD/386BSD)
+#    start 803250, size 401625 (196 Meg), flag 80 (active)
+#	beg: cyl 50/ head 0/ sector 1;
+#	end: cyl 74/ head 254/ sector 63
+#The data for partition 4 is:
+#<UNUSED>
+
+g   s63 c487    h255
+p   1   165 63  401562
+p   2   165 401625  401625
+p   3   165 803250  401625
+a   1
+
